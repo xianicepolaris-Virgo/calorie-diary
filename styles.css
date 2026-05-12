@@ -49,6 +49,95 @@ body::before {
   animation: softFloat 9s ease-in-out infinite alternate;
 }
 
+
+/* 主题色优化：每个主题都有独立的背景、主色、卡片与装饰 */
+body[data-theme="dimoo"] {
+  --green: #2f8a60; --green-soft: #dff1e6; --coral: #dc6b50; --yellow: #f0b84f; --blue: #4d8bb8;
+  --bg-top: #f4f8ef; --bg-mid: #f8fbf7; --bg-bottom: #eef6f0; --line: #d9e4dc; --ink: #21312b; --muted: #68756f;
+}
+body[data-theme="lineDog"] {
+  --green: #3f746f; --green-soft: #e5f1ef; --coral: #c87f6a; --yellow: #e9c976; --blue: #668ca6;
+  --bg-top: #fbfaf4; --bg-mid: #fffdf8; --bg-bottom: #eef3ef; --line: #ddd8c9; --ink: #24312f; --muted: #71766d;
+}
+body[data-theme="kuromi"] {
+  --green: #7a5a9e; --green-soft: #f0e8fb; --coral: #d86491; --yellow: #d8b65f; --blue: #6b79b8;
+  --bg-top: #fbf7ff; --bg-mid: #fffaff; --bg-bottom: #f4eefb; --line: #e5d8ef; --ink: #2e2538; --muted: #776b80;
+}
+body[data-theme="lulu"] {
+  --green: #6c9a58; --green-soft: #e9f4e2; --coral: #e18b5d; --yellow: #f0cf70; --blue: #78a8a0;
+  --bg-top: #f8fbef; --bg-mid: #fffef8; --bg-bottom: #edf6e7; --line: #dde8d5; --ink: #283326; --muted: #707b68;
+}
+body[data-theme="cream"] {
+  --green: #b78a2e; --green-soft: #fff1cc; --coral: #d7794d; --yellow: #efc15b; --blue: #7997a6;
+  --bg-top: #fff9e9; --bg-mid: #fffdf6; --bg-bottom: #fff2cf; --line: #eadfbe; --ink: #3a3121; --muted: #84775e;
+}
+body[data-theme="mint"] {
+  --green: #28977d; --green-soft: #dff8ef; --coral: #d87367; --yellow: #e8c66b; --blue: #54a3b0;
+  --bg-top: #effcf7; --bg-mid: #fbfffd; --bg-bottom: #e5f7f0; --line: #cfebe0; --ink: #18352f; --muted: #617973;
+}
+body[data-theme="strawberry"] {
+  --green: #d75d7f; --green-soft: #ffe6ee; --coral: #e86f79; --yellow: #f0bd72; --blue: #8aa6c8;
+  --bg-top: #fff2f5; --bg-mid: #fffafb; --bg-bottom: #ffe8ee; --line: #efd2db; --ink: #3b242b; --muted: #806b72;
+}
+body[data-theme="sakura"] {
+  --green: #c86f9e; --green-soft: #fdeaf3; --coral: #e38a9d; --yellow: #efc77c; --blue: #8ca7ca;
+  --bg-top: #fff6fb; --bg-mid: #fffefe; --bg-bottom: #fceaf4; --line: #efd7e5; --ink: #382630; --muted: #806f78;
+}
+body[data-theme="lavender"] {
+  --green: #8069c6; --green-soft: #eee9ff; --coral: #d77fa4; --yellow: #dec778; --blue: #758fc9;
+  --bg-top: #f6f3ff; --bg-mid: #fffcff; --bg-bottom: #eeeafd; --line: #ddd8f0; --ink: #2d2940; --muted: #706c83;
+}
+body[data-theme="sky"] {
+  --green: #3e86bc; --green-soft: #e2f2ff; --coral: #d98268; --yellow: #e9c56c; --blue: #4d9dcc;
+  --bg-top: #eff8ff; --bg-mid: #fbfdff; --bg-bottom: #e6f3fb; --line: #d0e3ee; --ink: #20323d; --muted: #637883;
+}
+body[data-theme="ocean"] {
+  --green: #247b8f; --green-soft: #dff4f7; --coral: #d66d61; --yellow: #e7bd65; --blue: #2d8fb8;
+  --bg-top: #edfaff; --bg-mid: #f9feff; --bg-bottom: #dff3f8; --line: #cbe3ea; --ink: #17333a; --muted: #5d7880;
+}
+body[data-theme="peach"] {
+  --green: #e07b4f; --green-soft: #ffe8dc; --coral: #e36f5f; --yellow: #efbd62; --blue: #789fb3;
+  --bg-top: #fff4ed; --bg-mid: #fffdf9; --bg-bottom: #ffe7d9; --line: #efd6c8; --ink: #3a2b22; --muted: #806f64;
+}
+body[data-theme="matcha"] {
+  --green: #6f9342; --green-soft: #edf6dc; --coral: #d7835f; --yellow: #dfc166; --blue: #6c9ca1;
+  --bg-top: #f5fae9; --bg-mid: #fefff9; --bg-bottom: #eaf2d8; --line: #dce7c7; --ink: #29351e; --muted: #6f7b61;
+}
+body[data-theme="mocha"] {
+  --green: #9a6a45; --green-soft: #f4e8dc; --coral: #c87558; --yellow: #d6ac61; --blue: #70899a;
+  --bg-top: #fbf4ec; --bg-mid: #fffaf5; --bg-bottom: #f0e2d3; --line: #dfd1c0; --ink: #33281f; --muted: #776a5e;
+}
+body[data-theme="forest"] {
+  --green: #256b4d; --green-soft: #dcefe5; --coral: #c66d57; --yellow: #dcb35b; --blue: #4d8791;
+  --bg-top: #eef7ef; --bg-mid: #f9fcf9; --bg-bottom: #e0eee3; --line: #cddfD3; --ink: #1f3328; --muted: #607267;
+}
+body[data-theme="panda"] {
+  --green: #2f3437; --green-soft: #eceff0; --coral: #a86565; --yellow: #c4a35a; --blue: #687f8a;
+  --bg-top: #f4f5f3; --bg-mid: #ffffff; --bg-bottom: #e9ecea; --line: #d7dbd8; --ink: #1f2426; --muted: #697071;
+}
+body[data-theme="grape"] {
+  --green: #8b55a4; --green-soft: #f2e4fa; --coral: #d86d89; --yellow: #d9b664; --blue: #7884c2;
+  --bg-top: #fbf0ff; --bg-mid: #fffaff; --bg-bottom: #f1e4f7; --line: #e3d0eb; --ink: #33223d; --muted: #76667e;
+}
+body[data-theme="sunset"] {
+  --green: #db7244; --green-soft: #ffe9db; --coral: #dd5f62; --yellow: #efb857; --blue: #7893bb;
+  --bg-top: #fff2e8; --bg-mid: #fffaf4; --bg-bottom: #ffe4d1; --line: #ebd0c0; --ink: #3b2a20; --muted: #7e6c60;
+}
+
+body {
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+select option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+select option:checked {
+  background: var(--green-soft);
+  color: var(--ink);
+}
+
 body[data-theme="lineDog"]::before {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--ink) 8%, transparent) 0 1px, transparent 1px 28px),

@@ -7,7 +7,20 @@ const themes = {
   lineDog: "线条小狗",
   kuromi: "酷洛米",
   lulu: "Lulu",
-  cream: "奶油黄"
+  cream: "奶油黄",
+  mint: "薄荷绿",
+  strawberry: "草莓粉",
+  sakura: "樱花粉",
+  lavender: "薰衣草",
+  sky: "天空蓝",
+  ocean: "海盐蓝",
+  peach: "蜜桃橙",
+  matcha: "抹茶",
+  mocha: "摩卡棕",
+  forest: "森林绿",
+  panda: "熊猫黑白",
+  grape: "葡萄紫",
+  sunset: "日落橘"
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -171,11 +184,15 @@ function addDays(dateStr, amount) {
 }
 
 function applyTheme() {
+  if (!themes[currentTheme]) currentTheme = "dimoo";
   document.body.dataset.theme = currentTheme;
   const select = $("#themeSelect");
   if (!select) return;
-  select.innerHTML = Object.entries(themes).map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+  select.innerHTML = Object.entries(themes)
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join("");
   select.value = currentTheme;
+  select.title = `当前主题：${themes[currentTheme]}`;
 }
 
 function render() {
