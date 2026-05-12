@@ -255,6 +255,14 @@ function getCloudConfig() {
   return window.SUPABASE_CONFIG || {};
 }
 
+function normalizeSupabaseUrl(url) {
+  return String(url || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/auth\/v1$/i, "");
+}
+
 function setCloudStatus(text, tone = "") {
   const node = $("#cloudStatus");
   if (!node) return;
@@ -269,13 +277,14 @@ function readableCloudError(error) {
 
 function initCloud() {
   const config = getCloudConfig();
-  const ready = Boolean(config.url && config.anonKey && window.supabase);
+  const supabaseUrl = normalizeSupabaseUrl(config.url);
+  const ready = Boolean(supabaseUrl && config.anonKey && window.supabase);
   if (!ready) {
     setCloudStatus("云端未配置，当前保存在本机", "muted");
     return false;
   }
 
-  cloudClient = window.supabase.createClient(config.url, config.anonKey);
+  cloudClient = window.supabase.createClient(supabaseUrl, config.anonKey.trim());
   setCloudStatus("正在连接云端...", "muted");
   return true;
 }
