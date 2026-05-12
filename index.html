@@ -3,94 +3,219 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>轻卡日记 - 最终修复版</title>
+    <title>轻卡日记</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <style>
-      /* 强制修复布局补丁 */
-      #authScreen {
-        position: fixed !important;
-        top: 0 !important; left: 0 !important;
-        width: 100vw !important; height: 100vh !important;
-        background: #f4f7f6 !important; /* 纯色背景防止穿透 */
-        z-index: 10000 !important;
-        display: flex !important; align-items: center; justify-content: center;
-      }
-      #authScreen.hidden { display: none !important; }
-      
-      /* 没登录时彻底移除主内容，防止 JS 渲染冲突 */
-      body.not-logged-in #appRoot { display: none !important; }
-      
-      /* 主题下拉框容器修复 */
-      .theme-picker { position: relative; z-index: 100; }
-      select { cursor: pointer; }
-    </style>
   </head>
-  <body class="not-logged-in">
-    <section id="authScreen">
-      <div class="auth-card" style="background:white; padding:30px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); width:320px;">
-        <p style="color:#2f8a60; font-weight:bold; margin-bottom:5px;">轻卡日记</p>
-        <h2 style="margin-top:0;">欢迎回来</h2>
-        <form id="authForm">
-          <input id="authEmail" type="text" placeholder="账号" required style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;" />
-          <input id="authPassword" type="password" placeholder="密码" required style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;" />
-          <button id="loginButton" type="submit" style="width:100%; padding:12px; background:#2f8a60; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">立即登录</button>
-          <button id="signupButton" type="button" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">注册新账号</button>
+  <body>
+    <section class="auth-screen" id="authScreen">
+      <div class="auth-card">
+        <p class="eyebrow">轻卡日记</p>
+        <h1>即刻开始记录</h1>
+        <p>输入账号和密码即可。第一次使用可以直接注册。</p>
+        <form id="authForm" class="auth-form">
+          <input id="authEmail" type="text" placeholder="输入账号 (字母或数字)" autocomplete="username" required />
+          <input id="authPassword" type="password" placeholder="密码，至少 6 位" autocomplete="current-password" required />
+          <button id="loginButton" type="submit">登录</button>
+          <button id="signupButton" class="ghost-button" type="button">注册新账号</button>
         </form>
-        <p id="authStatus" style="font-size:12px; text-align:center; color:#888; margin-top:15px;">等待连接云端...</p>
+        <div class="cloud-status" id="authStatus">请先登录</div>
       </div>
     </section>
-
-    <main id="appRoot">
+    <main class="app locked" id="appRoot">
       <section class="topbar">
         <div>
           <p class="eyebrow">轻卡日记</p>
-          <h1>健康生活，从记录开始</h1>
+          <h1>每天记录一点点，减重过程更清楚</h1>
+        </div>
+        <div class="theme-character" aria-hidden="true">
+          <div class="character-ear left"></div>
+          <div class="character-ear right"></div>
+          <div class="character-head">
+            <span class="eye left"></span>
+            <span class="eye right"></span>
+            <span class="cheek left"></span>
+            <span class="cheek right"></span>
+            <span class="mouth"></span>
+            <span class="mark"></span>
+          </div>
+          <div class="character-body"></div>
+          <div class="character-spark one"></div>
+          <div class="character-spark two"></div>
         </div>
         <div class="top-controls">
-          <label class="theme-picker">主题 <select id="themeSelect"></select></label>
+          <label class="theme-picker">
+            主题
+            <select id="themeSelect" aria-label="切换主题"></select>
+          </label>
           <div class="date-picker">
-            <button id="prevDay" class="icon-button">‹</button>
+            <button class="icon-button" id="prevDay" aria-label="前一天">‹</button>
             <input type="date" id="activeDate" />
-            <button id="nextDay" class="icon-button">›</button>
+            <button class="icon-button" id="nextDay" aria-label="后一天">›</button>
           </div>
         </div>
       </section>
 
       <section class="summary-grid">
-        <article class="summary-card"><span>今日摄入</span><strong id="totalCalories">0</strong><small>kcal</small></article>
-        <article class="summary-card"><span>还可以吃</span><strong id="remainingCalories">0</strong><small>kcal</small></article>
-        <article class="summary-card"><span>运动消耗</span><strong id="burnedCalories">0</strong><small>kcal</small></article>
-        <article class="summary-card"><span>当前体重</span><strong id="currentWeightText">--</strong><small>kg</small></article>
+        <article class="summary-card calories">
+          <span>今日摄入</span>
+          <strong id="totalCalories">0</strong>
+          <small>千卡</small>
+          <div class="meter"><i id="calorieMeter"></i></div>
+          <p id="calorieHint">设置目标后会显示剩余热量</p>
+        </article>
+        <article class="summary-card">
+          <span>还可以吃</span>
+          <strong id="remainingCalories">0</strong>
+          <small>千卡</small>
+          <p>按目标、已吃和运动自动计算</p>
+        </article>
+        <article class="summary-card">
+          <span>运动消耗</span>
+          <strong id="burnedCalories">0</strong>
+          <small>千卡</small>
+          <p>散步、跑步、骑行都可以记录</p>
+        </article>
+        <article class="summary-card">
+          <span>当前体重</span>
+          <strong id="currentWeightText">--</strong>
+          <small>kg</small>
+          <p id="weightHint">记录后会自动更新趋势</p>
+        </article>
       </section>
 
       <section class="workspace">
         <div class="panel tracker">
-          <div class="panel-head"><h2>饮食记录</h2><button id="copyYesterday" class="ghost-button">复制昨天</button></div>
-          <form id="entryForm" class="entry-form">
-            <select id="mealType">
-                <option value="breakfast">早餐</option><option value="lunch">午餐</option>
-                <option value="dinner">晚餐</option><option value="snack">加餐</option>
+          <div class="panel-head">
+            <div>
+              <h2>今日记录</h2>
+              <p>手机上优先用快捷添加，也可以手动输入。</p>
+            </div>
+            <button class="ghost-button" id="copyYesterday">复制昨天</button>
+          </div>
+
+          <div class="weight-row">
+            <label>
+              今日体重
+              <input type="number" id="dailyWeight" min="20" max="300" step="0.1" placeholder="例如 68.5" />
+            </label>
+            <label>
+              今日饮水
+              <input type="number" id="waterCups" min="0" max="30" step="1" placeholder="杯数" />
+            </label>
+            <label>
+              睡眠
+              <input type="number" id="sleepHours" min="0" max="24" step="0.5" placeholder="小时" />
+            </label>
+          </div>
+
+          <form class="entry-form" id="entryForm">
+            <select id="mealType" aria-label="选择餐次">
+              <option value="breakfast">早餐</option>
+              <option value="lunch">午餐</option>
+              <option value="dinner">晚餐</option>
+              <option value="snack">加餐</option>
             </select>
-            <input id="foodName" type="text" placeholder="食物名称" />
-            <input id="foodCalories" type="number" placeholder="热量" required />
-            <button type="submit">添加</button>
+            <input id="foodName" type="text" placeholder="食物名称，可不填" />
+            <input id="foodCalories" type="number" min="1" step="1" placeholder="千卡" required />
+            <button id="entrySubmit" type="submit">添加</button>
+            <button id="entryCancel" class="ghost-button hidden" type="button">取消</button>
           </form>
-          <div id="mealList" class="meal-list"></div>
+
+          <div class="meal-list" id="mealList"></div>
+
+          <div class="quick-panel">
+            <div class="quick-title">
+              <label>
+                快捷添加
+                <input id="quickSearch" type="search" placeholder="输入食物名，边打边搜" autocomplete="off" />
+              </label>
+              <small>手动添加过的食物会自动保存，搜索后可一键加入。</small>
+            </div>
+            <div id="quickFoods" class="quick-foods"></div>
+          </div>
         </div>
+
         <aside class="panel goals">
-          <h2>云端同步</h2>
-          <div id="cloudStatus" class="cloud-status">未连接</div>
-          <label>每日热量目标 <input type="number" id="dailyGoal" /></label>
-          <button id="logoutButton" class="ghost-button" style="width:100%; color:red; margin-top:20px;">退出登录</button>
+          <div class="panel-head compact">
+            <h2>目标设置</h2>
+            <div class="small-actions">
+              <button class="ghost-button" id="logoutButton">退出</button>
+              <button class="ghost-button" id="resetDemo">清空</button>
+            </div>
+          </div>
+          <div class="cloud-status" id="cloudStatus">云端未配置</div>
+          <label>
+            现在体重 kg
+            <input type="number" id="startWeight" min="20" max="300" step="0.1" />
+          </label>
+          <label>
+            目标体重 kg
+            <input type="number" id="targetWeight" min="20" max="300" step="0.1" />
+          </label>
+          <label>
+            每日热量目标
+            <input type="number" id="dailyGoal" min="800" max="6000" step="10" />
+          </label>
+          <label>
+            今日运动消耗
+            <input type="number" id="exerciseCalories" min="0" max="3000" step="1" />
+          </label>
+          <div class="goal-result">
+            <strong id="goalProgress">先设置目标</strong>
+            <span id="goalDetail">建议温和减重，每周约 0.25-0.75 kg。</span>
+          </div>
+          <div class="actions">
+            <button id="exportData" type="button">导出数据</button>
+            <label class="import-button">
+              导入数据
+              <input type="file" id="importData" accept="application/json" />
+            </label>
+          </div>
         </aside>
+      </section>
+
+      <section class="panel calendar-panel">
+        <div class="panel-head">
+          <div>
+            <h2>健康日历</h2>
+            <p>每天的体重、三餐和加餐一眼能看到。</p>
+          </div>
+          <div class="month-nav">
+            <button class="icon-button" id="prevMonth" aria-label="上个月">‹</button>
+            <strong id="monthLabel"></strong>
+            <button class="icon-button" id="nextMonth" aria-label="下个月">›</button>
+          </div>
+        </div>
+        <div class="weekdays">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="calendar" id="calendar"></div>
+      </section>
+
+      <section class="insights">
+        <article class="panel">
+          <h2>最近 7 天</h2>
+          <div class="bars" id="weekBars"></div>
+        </article>
+        <article class="panel">
+          <h2>贴心提醒</h2>
+          <ul id="tips"></ul>
+        </article>
       </section>
     </main>
 
     <template id="mealTemplate">
-      <div class="meal-card"><div class="meal-title"><h3></h3><span></span></div><div class="entries"></div></div>
+      <section class="meal-card">
+        <div class="meal-title">
+          <h3></h3>
+          <span></span>
+        </div>
+        <div class="entries"></div>
+      </section>
     </template>
+
     <script src="app.js"></script>
   </body>
 </html>
