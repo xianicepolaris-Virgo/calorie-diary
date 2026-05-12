@@ -13,9 +13,9 @@
       <div class="auth-card">
         <p class="eyebrow">轻卡日记</p>
         <h1>欢迎回来</h1>
-        <p>输入账号和密码即可开始同步。第一次使用请直接点击注册。</p>
+        <p>输入账号和密码即可同步。第一次使用请直接点击注册。</p>
         <form id="authForm" class="auth-form">
-          <input id="authEmail" type="text" placeholder="账号 (建议用字母或数字)" autocomplete="username" required />
+          <input id="authEmail" type="text" placeholder="账号 (如: xianxian)" autocomplete="username" required />
           <input id="authPassword" type="password" placeholder="密码 (至少 6 位)" autocomplete="current-password" required />
           <button id="loginButton" type="submit">立即登录</button>
           <button id="signupButton" class="ghost-button" type="button">注册新账号</button>
@@ -28,11 +28,11 @@
       <section class="topbar">
         <div>
           <p class="eyebrow">轻卡日记</p>
-          <h1>每天记录一点点，健康生活每一天</h1>
+          <h1>健康生活，从记录开始</h1>
         </div>
         <div class="top-controls">
           <label class="theme-picker">
-            主题 <select id="themeSelect" aria-label="切换主题"></select>
+            主题 <select id="themeSelect"></select>
           </label>
           <div class="date-picker">
             <button class="icon-button" id="prevDay">‹</button>
@@ -47,38 +47,36 @@
           <span>今日摄入</span>
           <strong id="totalCalories">0</strong><small>千卡</small>
           <div class="meter"><i id="calorieMeter"></i></div>
-          <p id="calorieHint">请先设置每日目标</p>
+          <p id="calorieHint">请设置目标</p>
         </article>
         <article class="summary-card">
-          <span>剩余配额</span>
+          <span>还可以吃</span>
           <strong id="remainingCalories">0</strong><small>千卡</small>
-          <p>基于目标与运动计算</p>
+          <p>自动计算剩余</p>
         </article>
         <article class="summary-card">
           <span>运动消耗</span>
           <strong id="burnedCalories">0</strong><small>千卡</small>
-          <p>建议每天运动 30 分钟</p>
+          <p>记录今日运动</p>
         </article>
         <article class="summary-card">
           <span>当前体重</span>
           <strong id="currentWeightText">--</strong><small>kg</small>
-          <p id="weightHint">记录体重以查看趋势</p>
+          <p>查看体重趋势</p>
         </article>
       </section>
 
       <section class="workspace">
         <div class="panel tracker">
           <div class="panel-head">
-            <h2>今日饮食记录</h2>
+            <h2>饮食记录</h2>
             <button class="ghost-button" id="copyYesterday">复制昨天</button>
           </div>
-          
           <div class="weight-row">
             <label>体重 kg <input type="number" id="dailyWeight" step="0.1" /></label>
-            <label>饮水 (杯) <input type="number" id="waterCups" step="1" /></label>
-            <label>睡眠 (h) <input type="number" id="sleepHours" step="0.5" /></label>
+            <label>饮 water <input type="number" id="waterCups" /></label>
+            <label>睡眠 h <input type="number" id="sleepHours" /></label>
           </div>
-
           <form class="entry-form" id="entryForm">
             <select id="mealType">
               <option value="breakfast">早餐</option>
@@ -91,25 +89,16 @@
             <button id="entrySubmit" type="submit">添加</button>
             <button id="entryCancel" class="ghost-button hidden" type="button">取消</button>
           </form>
-
           <div class="meal-list" id="mealList"></div>
         </div>
 
         <aside class="panel goals">
-          <div class="panel-head compact">
-            <h2>个人设置</h2>
-            <div class="small-actions">
-              <button class="ghost-button" id="logoutButton">退出登录</button>
-            </div>
-          </div>
-          <div class="cloud-status" id="cloudStatus">未连接</div>
+          <h2>设置</h2>
+          <div class="cloud-status" id="cloudStatus">检查配置中...</div>
           <label>目标体重 kg <input type="number" id="targetWeight" step="0.1" /></label>
           <label>每日热量目标 <input type="number" id="dailyGoal" /></label>
           <label>今日运动消耗 <input type="number" id="exerciseCalories" /></label>
-          <div class="goal-result">
-            <strong id="goalProgress">--</strong>
-            <span id="goalDetail">--</span>
-          </div>
+          <button class="ghost-button" id="logoutButton" style="margin-top: 10px; width: 100%;">退出登录</button>
         </aside>
       </section>
     </main>
