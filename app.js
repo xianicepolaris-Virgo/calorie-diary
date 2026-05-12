@@ -262,6 +262,11 @@ function setCloudStatus(text, tone = "") {
   node.dataset.tone = tone;
 }
 
+function readableCloudError(error) {
+  if (!error) return "未知原因";
+  return error.message || error.details || error.hint || String(error);
+}
+
 function initCloud() {
   const config = getCloudConfig();
   const ready = Boolean(config.url && config.anonKey && window.supabase);
@@ -289,7 +294,7 @@ async function loadCloudState() {
   isLoadingCloud = false;
 
   if (error) {
-    setCloudStatus("云端连接失败，已保存在本机", "error");
+    setCloudStatus(`云端连接失败：${readableCloudError(error)}`, "error");
     return;
   }
 
@@ -321,7 +326,7 @@ async function saveCloudState() {
       updated_at: new Date().toISOString(),
     });
 
-  setCloudStatus(error ? "云端保存失败，已保存在本机" : "已保存到云端", error ? "error" : "ok");
+  setCloudStatus(error ? `云端保存失败：${readableCloudError(error)}` : "已保存到云端", error ? "error" : "ok");
 }
 
 function applyTheme(themeId = currentTheme, rotateBackground = true) {
