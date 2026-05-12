@@ -140,6 +140,10 @@ button {
   padding: 28px 0 40px;
 }
 
+.app.locked {
+  display: none;
+}
+
 .topbar,
 .panel-head,
 .date-picker,

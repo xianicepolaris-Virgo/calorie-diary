@@ -300,6 +300,7 @@ function initCloud() {
 function setSignedIn(user) {
   currentUser = user;
   $("#authScreen").classList.toggle("hidden", Boolean(user));
+  $("#appRoot").classList.toggle("locked", !user);
   setCloudStatus(user ? `已登录：${user.email}` : "请先登录账号", user ? "ok" : "muted");
 }
 
@@ -309,6 +310,18 @@ async function checkAuthSession() {
   const user = data?.session?.user || null;
   setSignedIn(user);
   if (user) loadCloudState();
+}
+
+async function hasValidSession() {
+  if (!cloudClient) return false;
+  const { data } = await cloudClient.auth.getSession();
+  const user = data?.session?.user || null;
+  if (!user) {
+    setSignedIn(null);
+    return false;
+  }
+  currentUser = user;
+  return true;
 }
 
 async function signIn(email, password) {
@@ -330,8 +343,8 @@ async function signUp(email, password) {
     setAuthStatus(`注册失败：${readableCloudError(error)}`, "error");
     return;
   }
-  setAuthStatus(data.session ? "注册成功" : "注册成功，请检查邮箱确认邮件", "ok");
-  if (data.user) {
+  setAuthStatus(data.session ? "注册成功，已登录" : "注册成功，请先去邮箱确认后再登录", "ok");
+  if (data.session?.user) {
     setSignedIn(data.user);
     loadCloudState();
   }
@@ -346,6 +359,7 @@ async function signOut() {
 
 async function loadCloudState() {
   if (!cloudClient || !currentUser || isLoadingCloud) return;
+  if (!(await hasValidSession())) return;
   isLoadingCloud = true;
 
   const config = getCloudConfig();
@@ -381,6 +395,7 @@ function scheduleCloudSave() {
 
 async function saveCloudState() {
   if (!cloudClient || !currentUser) return;
+  if (!(await hasValidSession())) return;
   const config = getCloudConfig();
   const { error } = await cloudClient
     .from(config.table || "health_diary")
