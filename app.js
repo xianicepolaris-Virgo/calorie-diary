@@ -45,7 +45,49 @@ function safeText(selector, text) {
 
 function safeValue(selector, value) {
   const el = $(selector);
-  if (el) el.value = value ?? "";
+  if (!el) return;
+
+  // 正在输入时不要强行回填，避免小数点被浏览器/渲染流程吞掉
+  if (document.activeElement === el) return;
+
+  el.value = value ?? "";
+}
+
+function toNumber(value, fallback = 0) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeDecimalValue(value) {
+  return String(value ?? "")
+    .replace(/[，。]/g, ".")
+    .replace(/[^\d.]/g, "")
+    .replace(/\.{2,}/g, ".")
+    .replace(".", "__DOT__")
+    .replace(/\./g, "")
+    .replace("__DOT__", ".");
+}
+
+function bindDecimalInput(selector) {
+  const input = $(selector);
+  if (!input) return;
+
+  input.setAttribute("inputmode", "decimal");
+  input.setAttribute("autocomplete", "off");
+
+  input.addEventListener("input", (e) => {
+    const original = e.target.value;
+    const fixed = normalizeDecimalValue(original);
+
+    if (original !== fixed) {
+      const cursor = e.target.selectionStart ?? fixed.length;
+      e.target.value = fixed;
+      const nextCursor = Math.min(cursor, fixed.length);
+      try {
+        e.target.setSelectionRange(nextCursor, nextCursor);
+      } catch {}
+    }
+  });
 }
 
 function setAuthStatus(message, type = "muted") {
@@ -173,7 +215,7 @@ function getDay(date = activeDate) {
 }
 
 function caloriesOf(day) {
-  return Object.values(day?.meals || {}).flat().reduce((sum, item) => sum + Number(item.calories || 0), 0);
+  return Object.values(day?.meals || {}).flat().reduce((sum, item) => sum + toNumber(item.calories), 0);
 }
 
 function addDays(dateStr, amount) {
@@ -199,8 +241,8 @@ function render() {
   isRendering = true;
   const day = getDay();
   const total = caloriesOf(day);
-  const goal = Number(state.settings.dailyGoal || 0);
-  const exercise = Number(day.exercise || 0);
+  const goal = toNumber(state.settings.dailyGoal);
+  const exercise = toNumber(day.exercise);
   const remaining = goal - total + exercise;
 
   safeValue("#activeDate", activeDate);
@@ -247,7 +289,7 @@ function renderMeals(day) {
       day.meals[key].forEach((item, index) => {
         const row = document.createElement("div");
         row.className = "entry-row";
-        row.innerHTML = `<span>${item.name}</span><b>${Number(item.calories || 0)} 千卡</b><button type="button" aria-label="删除">×</button>`;
+        row.innerHTML = `<span>${item.name}</span><b>${toNumber(item.calories)} 千卡</b><button type="button" aria-label="删除">×</button>`;
         row.querySelector("button").addEventListener("click", () => {
           day.meals[key].splice(index, 1);
           render();
@@ -307,12 +349,22 @@ function renderTips(total, goal, exercise, day) {
   if (goal && total > goal) list.push("今天摄入已超过目标，可以增加一点轻运动。");
   if (goal && total <= goal) list.push("今日热量还在目标范围内，继续保持。");
   if (!day.weight) list.push("记录体重后，趋势会更准确。");
-  if (!Number(day.water || 0)) list.push("别忘了记录饮水。");
+  if (!toNumber(day.water)) list.push("别忘了记录饮水。");
   if (exercise > 0) list.push(`运动已消耗 ${exercise} 千卡，很棒。`);
   tips.innerHTML = list.map((tip) => `<p>${tip}</p>`).join("");
 }
 
 function bindEvents() {
+  [
+    "#dailyWeight",
+    "#waterCups",
+    "#sleepHours",
+    "#foodCalories",
+    "#targetWeight",
+    "#dailyGoal",
+    "#exerciseCalories"
+  ].forEach(bindDecimalInput);
+
   $("#authForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     signIn($("#authEmail")?.value, $("#authPassword")?.value);
@@ -329,7 +381,7 @@ function bindEvents() {
     e.preventDefault();
     const meal = $("#mealType").value;
     const name = $("#foodName").value.trim() || "未命名食物";
-    const calories = Number($("#foodCalories").value || 0);
+    const calories = toNumber($("#foodCalories").value);
     if (!calories) return;
     getDay().meals[meal].push({ name, calories });
     e.target.reset();
