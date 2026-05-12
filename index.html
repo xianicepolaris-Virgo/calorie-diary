@@ -74,9 +74,9 @@
           </div>
           
           <div class="weight-row">
-            <label>体重 kg <input type="number" id="dailyWeight" step="0.1" /></label>
-            <label>饮水 (杯) <input type="number" id="waterCups" step="1" /></label>
-            <label>睡眠 (h) <input type="number" id="sleepHours" step="0.5" /></label>
+            <label>体重 kg <input type="text" id="dailyWeight" inputmode="decimal" /></label>
+            <label>饮水 (杯) <input type="text" id="waterCups" inputmode="decimal" /></label>
+            <label>睡眠 (h) <input type="text" id="sleepHours" inputmode="decimal" /></label>
           </div>
 
           <form class="entry-form" id="entryForm">
@@ -87,7 +87,7 @@
               <option value="snack">加餐</option>
             </select>
             <input id="foodName" type="text" placeholder="食物名称" />
-            <input id="foodCalories" type="number" placeholder="热量" required />
+            <input id="foodCalories" type="text" inputmode="decimal" placeholder="热量" required />
             <button id="entrySubmit" type="submit">添加</button>
             <button id="entryCancel" class="ghost-button hidden" type="button">取消</button>
           </form>
@@ -103,9 +103,9 @@
             </div>
           </div>
           <div class="cloud-status" id="cloudStatus">未连接</div>
-          <label>目标体重 kg <input type="number" id="targetWeight" step="0.1" /></label>
-          <label>每日热量目标 <input type="number" id="dailyGoal" /></label>
-          <label>今日运动消耗 <input type="number" id="exerciseCalories" /></label>
+          <label>目标体重 kg <input type="text" id="targetWeight" inputmode="decimal" /></label>
+          <label>每日热量目标 <input type="text" id="dailyGoal" inputmode="decimal" /></label>
+          <label>今日运动消耗 <input type="text" id="exerciseCalories" inputmode="decimal" /></label>
           <div class="goal-result">
             <strong id="goalProgress">--</strong>
             <span id="goalDetail">--</span>
