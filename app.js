@@ -207,6 +207,7 @@ let currentTheme = localStorage.getItem(UI_THEME_KEY) || "dimoo";
 let cloudClient = null;
 let cloudSaveTimer = null;
 let isLoadingCloud = false;
+let currentUser = null;
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(OLD_STORAGE_KEY);
@@ -270,6 +271,13 @@ function setCloudStatus(text, tone = "") {
   node.dataset.tone = tone;
 }
 
+function setAuthStatus(text, tone = "") {
+  const node = $("#authStatus");
+  if (!node) return;
+  node.textContent = text;
+  node.dataset.tone = tone;
+}
+
 function readableCloudError(error) {
   if (!error) return "未知原因";
   return error.message || error.details || error.hint || String(error);
@@ -285,19 +293,66 @@ function initCloud() {
   }
 
   cloudClient = window.supabase.createClient(supabaseUrl, config.anonKey.trim());
-  setCloudStatus("正在连接云端...", "muted");
+  setCloudStatus("请先登录账号", "muted");
   return true;
 }
 
+function setSignedIn(user) {
+  currentUser = user;
+  $("#authScreen").classList.toggle("hidden", Boolean(user));
+  setCloudStatus(user ? `已登录：${user.email}` : "请先登录账号", user ? "ok" : "muted");
+}
+
+async function checkAuthSession() {
+  if (!cloudClient) return;
+  const { data } = await cloudClient.auth.getSession();
+  const user = data?.session?.user || null;
+  setSignedIn(user);
+  if (user) loadCloudState();
+}
+
+async function signIn(email, password) {
+  setAuthStatus("正在登录...", "muted");
+  const { data, error } = await cloudClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    setAuthStatus(`登录失败：${readableCloudError(error)}`, "error");
+    return;
+  }
+  setAuthStatus("登录成功", "ok");
+  setSignedIn(data.user);
+  loadCloudState();
+}
+
+async function signUp(email, password) {
+  setAuthStatus("正在注册...", "muted");
+  const { data, error } = await cloudClient.auth.signUp({ email, password });
+  if (error) {
+    setAuthStatus(`注册失败：${readableCloudError(error)}`, "error");
+    return;
+  }
+  setAuthStatus(data.session ? "注册成功" : "注册成功，请检查邮箱确认邮件", "ok");
+  if (data.user) {
+    setSignedIn(data.user);
+    loadCloudState();
+  }
+}
+
+async function signOut() {
+  if (!cloudClient) return;
+  await cloudClient.auth.signOut();
+  currentUser = null;
+  setSignedIn(null);
+}
+
 async function loadCloudState() {
-  if (!cloudClient || isLoadingCloud) return;
+  if (!cloudClient || !currentUser || isLoadingCloud) return;
   isLoadingCloud = true;
 
   const config = getCloudConfig();
   const { data, error } = await cloudClient
     .from(config.table || "health_diary")
     .select("data")
-    .eq("id", config.rowId || "default")
+    .eq("user_id", currentUser.id)
     .maybeSingle();
 
   isLoadingCloud = false;
@@ -319,21 +374,21 @@ async function loadCloudState() {
 }
 
 function scheduleCloudSave() {
-  if (!cloudClient || isLoadingCloud) return;
+  if (!cloudClient || !currentUser || isLoadingCloud) return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(saveCloudState, 700);
 }
 
 async function saveCloudState() {
-  if (!cloudClient) return;
+  if (!cloudClient || !currentUser) return;
   const config = getCloudConfig();
   const { error } = await cloudClient
     .from(config.table || "health_diary")
     .upsert({
-      id: config.rowId || "default",
+      user_id: currentUser.id,
       data: state,
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "user_id" });
 
   setCloudStatus(error ? `云端保存失败：${readableCloudError(error)}` : "已保存到云端", error ? "error" : "ok");
 }
@@ -721,6 +776,25 @@ function escapeHtml(text) {
 }
 
 function bindEvents() {
+  $("#authForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!cloudClient) {
+      setAuthStatus("云端还没配置好，不能登录", "error");
+      return;
+    }
+    signIn($("#authEmail").value.trim(), $("#authPassword").value);
+  });
+
+  $("#signupButton").addEventListener("click", () => {
+    if (!cloudClient) {
+      setAuthStatus("云端还没配置好，不能注册", "error");
+      return;
+    }
+    signUp($("#authEmail").value.trim(), $("#authPassword").value);
+  });
+
+  $("#logoutButton").addEventListener("click", signOut);
+
   $("#themeSelect").addEventListener("change", (event) => {
     applyTheme(event.target.value, true);
   });
@@ -828,5 +902,5 @@ renderThemeOptions();
 bindEvents();
 render();
 if (initCloud()) {
-  loadCloudState();
+  checkAuthSession();
 }

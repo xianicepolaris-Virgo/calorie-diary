@@ -82,6 +82,58 @@ button {
   cursor: pointer;
 }
 
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background:
+    var(--accent-pattern),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bottom) 100%);
+}
+
+.auth-screen.hidden {
+  display: none;
+}
+
+.auth-card {
+  width: min(440px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.auth-form button {
+  border: 0;
+  border-radius: var(--button-radius);
+  min-height: 44px;
+  padding: 0 14px;
+  color: #fff;
+  background: var(--green);
+  font-weight: 700;
+}
+
+.auth-form .ghost-button {
+  border: 1px solid var(--line);
+  color: var(--green);
+  background: #fff;
+}
+
 .app {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -257,6 +309,13 @@ label {
 
 .panel-head.compact {
   margin-bottom: 10px;
+}
+
+.small-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .ghost-button,
