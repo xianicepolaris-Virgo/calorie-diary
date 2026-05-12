@@ -1,40 +1,47 @@
-/* * 核心逻辑：拦截账号输入，绕过邮箱验证系统
- * 开发作者：CodeMaster
+/**
+ * 极速免邮验证版 app.js
+ * CodeMaster 优化
  */
 
 const STORAGE_KEY = "light-calorie-diary-v2";
-const UI_THEME_KEY = "light-calorie-diary-theme";
-
-// --- 基础配置与数据初始化 ---
 const mealNames = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
 const $ = (selector) => document.querySelector(selector);
 const today = () => new Date().toISOString().split('T')[0];
 
 let state = loadState();
 let activeDate = today();
-let currentTheme = localStorage.getItem(UI_THEME_KEY) || "dimoo";
 let cloudClient = null;
 let currentUser = null;
 
-// --- 核心：账号转换逻辑 ---
+// --- 核心：转换函数 ---
 function formatAccountToEmail(input) {
   const val = input.trim();
-  // 如果输入已经是邮箱格式，直接返回；否则拼接伪后缀
   return val.includes('@') ? val : `${val}@diary.local`;
 }
 
-// --- 认证与云端逻辑 ---
+// --- 初始化云端 ---
 function initCloud() {
-  const config = window.SUPABASE_CONFIG || {};
-  if (!config.url || !config.anonKey) {
-    setCloudStatus("云端配置缺失", "error");
+  const config = window.SUPABASE_CONFIG;
+  if (!config || !config.url || !config.anonKey) {
+    setCloudStatus("云端配置缺失，请检查 config 文件", "error");
+    setAuthStatus("云端还没配置好，不能登录", "error");
     return false;
   }
-  cloudClient = supabase.createClient(config.url, config.anonKey);
-  return true;
+  try {
+    cloudClient = supabase.createClient(config.url, config.anonKey);
+    setCloudStatus("云端已连接", "ok");
+    return true;
+  } catch (e) {
+    setCloudStatus("初始化失败", "error");
+    return false;
+  }
 }
 
 async function signIn(account, password) {
+  if (!cloudClient) {
+    setAuthStatus("云端还没配置好，不能登录", "error");
+    return;
+  }
   setAuthStatus("正在登录...", "muted");
   const email = formatAccountToEmail(account);
   
@@ -49,7 +56,11 @@ async function signIn(account, password) {
 }
 
 async function signUp(account, password) {
-  setAuthStatus("正在快速创建账号...", "muted");
+  if (!cloudClient) {
+    setAuthStatus("云端还没配置好，不能登录", "error");
+    return;
+  }
+  setAuthStatus("正在创建账号...", "muted");
   const email = formatAccountToEmail(account);
   
   const { data, error } = await cloudClient.auth.signUp({ email, password });
@@ -59,14 +70,12 @@ async function signUp(account, password) {
     return;
   }
   
-  // 关键：由于关闭了邮箱确认，data.session 此时应有值
   if (data.session) {
-    setAuthStatus("注册成功并已自动登录", "ok");
+    setAuthStatus("注册成功并登录", "ok");
     setSignedIn(data.user);
     loadCloudState();
   } else {
-    // 降级处理：若仍未自动登录，引导用户点一下登录
-    setAuthStatus("账号创建成功，请点击登录", "ok");
+    setAuthStatus("注册成功，请重新点击登录", "ok");
   }
 }
 
@@ -79,17 +88,11 @@ function setSignedIn(user) {
 
 async function loadCloudState() {
   if (!cloudClient || !currentUser) return;
-  const { data, error } = await cloudClient
-    .from("health_diary")
-    .select("data")
-    .eq("user_id", currentUser.id)
-    .maybeSingle();
-
+  const { data } = await cloudClient.from("health_diary").select("data").eq("user_id", currentUser.id).maybeSingle();
   if (data?.data) {
     state = data.data;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     render();
-    setCloudStatus("云端数据已同步", "ok");
   }
 }
 
@@ -100,19 +103,26 @@ async function saveCloudState() {
     data: state,
     updated_at: new Date().toISOString()
   });
-  setCloudStatus("已自动保存至云端", "ok");
 }
 
-// --- 数据持久化与渲染 (精简版) ---
+function setCloudStatus(t, tone) {
+  const n = $("#cloudStatus");
+  if (n) { n.textContent = t; n.dataset.tone = tone; }
+}
+
+function setAuthStatus(t, tone) {
+  const n = $("#authStatus");
+  if (n) { n.textContent = t; n.dataset.tone = tone; }
+}
+
+// --- 基础逻辑 ---
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   return raw ? JSON.parse(raw) : { settings: { dailyGoal: 1600 }, days: {} };
 }
 
 function getDay() {
-  if (!state.days[activeDate]) {
-    state.days[activeDate] = { weight: "", exercise: 0, meals: { breakfast: [], lunch: [], dinner: [], snack: [] } };
-  }
+  if (!state.days[activeDate]) state.days[activeDate] = { weight: "", exercise: 0, meals: { breakfast: [], lunch: [], dinner: [], snack: [] } };
   return state.days[activeDate];
 }
 
@@ -121,29 +131,22 @@ function render() {
   $("#activeDate").value = activeDate;
   $("#dailyWeight").value = day.weight;
   $("#dailyGoal").value = state.settings.dailyGoal;
-  
-  // 计算热量
   const total = Object.values(day.meals).flat().reduce((s, e) => s + Number(e.calories), 0);
   $("#totalCalories").textContent = total;
-  
-  const goal = Number(state.settings.dailyGoal) || 0;
-  const remaining = goal - total + Number(day.exercise || 0);
-  $("#remainingCalories").textContent = remaining;
-  
   renderMeals(day);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   saveCloudState();
 }
 
 function renderMeals(day) {
-  const list = $("#mealList");
-  list.innerHTML = "";
+  const list = $("#mealList"); list.innerHTML = "";
   Object.entries(mealNames).forEach(([key, label]) => {
     const node = $("#mealTemplate").content.firstElementChild.cloneNode(true);
     node.querySelector("h3").textContent = label;
     const entriesDiv = node.querySelector(".entries");
     day.meals[key].forEach(item => {
       const row = document.createElement("div");
+      row.className = "entry";
       row.innerHTML = `<span>${item.name}</span> <b>${item.calories}</b>`;
       entriesDiv.appendChild(row);
     });
@@ -151,48 +154,34 @@ function renderMeals(day) {
   });
 }
 
-// --- 事件绑定 ---
 function bindEvents() {
   $("#authForm").addEventListener("submit", (e) => {
     e.preventDefault();
     signIn($("#authEmail").value, $("#authPassword").value);
   });
-
   $("#signupButton").addEventListener("click", () => {
     signUp($("#authEmail").value, $("#authPassword").value);
   });
-
   $("#logoutButton").addEventListener("click", async () => {
     await cloudClient.auth.signOut();
     setSignedIn(null);
   });
-
   $("#entryForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const meal = $("#mealType").value;
-    const name = $("#foodName").value || "未命名食物";
-    const calories = $("#foodCalories").value;
-    getDay().meals[meal].push({ name, calories });
+    getDay().meals[meal].push({ name: $("#foodName").value || "饮食", calories: $("#foodCalories").value });
     render();
     e.target.reset();
   });
-
-  $("#activeDate").addEventListener("change", (e) => {
-    activeDate = e.target.value;
-    render();
-  });
-  
-  $("#dailyGoal").addEventListener("input", (e) => {
-    state.settings.dailyGoal = e.target.value;
-    render();
-  });
+  $("#activeDate").addEventListener("change", (e) => { activeDate = e.target.value; render(); });
 }
 
-// --- 初始化启动 ---
-if (initCloud()) {
-  cloudClient.auth.getSession().then(({ data }) => {
+// --- 启动流程 ---
+(async () => {
+  if (initCloud()) {
+    const { data } = await cloudClient.auth.getSession();
     if (data.session) setSignedIn(data.session.user);
-  });
-}
-bindEvents();
-render();
+  }
+  bindEvents();
+  render();
+})();
