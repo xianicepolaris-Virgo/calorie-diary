@@ -761,3 +761,123 @@ label {
     flex: 1;
   }
 }
+
+
+.auth-screen.hidden { display: none; }
+.app.locked { display: none; }
+
+.cloud-status[data-status="ok"] { color: var(--green); background: var(--green-soft); }
+.cloud-status[data-status="error"] { color: var(--coral); background: #fff1ed; }
+
+.health-calendar { margin-top: 18px; }
+.health-calendar .panel-head p { margin: 4px 0 0; color: var(--muted); }
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-weekdays {
+  margin: 18px 0 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.calendar-day {
+  min-height: 84px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--soft-panel);
+  color: var(--ink);
+  text-align: left;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.calendar-day.active,
+.calendar-day:hover {
+  border-color: var(--green);
+  box-shadow: var(--shadow);
+}
+
+.calendar-day small,
+.calendar-day em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.trend-chart {
+  min-height: 210px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 14px;
+  padding-top: 24px;
+}
+
+.trend-bar-wrap {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trend-value {
+  min-height: 16px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.trend-bar {
+  width: 100%;
+  max-width: 42px;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(180deg, var(--green), var(--green-soft));
+  transition: height .2s ease;
+}
+
+.tips-list p,
+.empty {
+  margin: 8px 0;
+  color: var(--muted);
+}
+
+.entry-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px dashed var(--line);
+}
+
+.entry-row button {
+  border: 0;
+  background: transparent;
+  color: var(--coral);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .insight-grid { grid-template-columns: 1fr; }
+  .calendar-grid { gap: 6px; }
+  .calendar-day { min-height: 66px; padding: 7px; }
+}

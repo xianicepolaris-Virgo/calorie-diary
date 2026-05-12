@@ -113,33 +113,34 @@
         </aside>
       </section>
 
-      <section class="panel calendar-panel">
-        <div class="panel-head">
+      <section class="panel health-calendar">
+        <div class="panel-head compact">
           <div>
             <h2>健康日历</h2>
             <p>每天的体重、三餐和加餐一眼能看到。</p>
           </div>
-          <div class="month-nav">
+          <div class="small-actions">
             <button class="icon-button" id="prevMonth" type="button">‹</button>
             <button class="icon-button" id="nextMonth" type="button">›</button>
           </div>
         </div>
-        <div class="weekdays">
+        <div class="calendar-weekdays">
           <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
         </div>
-        <div class="calendar" id="calendar"></div>
+        <div class="calendar-grid" id="calendarGrid"></div>
       </section>
 
-      <section class="insights">
+      <section class="insight-grid">
         <article class="panel">
           <h2>最近 7 天</h2>
-          <div class="bars" id="trendBars"></div>
+          <div class="trend-chart" id="trendChart"></div>
         </article>
         <article class="panel">
           <h2>贴心提醒</h2>
-          <ul id="tips"></ul>
+          <div class="tips-list" id="tipsList"></div>
         </article>
       </section>
+
     </main>
 
     <template id="mealTemplate">

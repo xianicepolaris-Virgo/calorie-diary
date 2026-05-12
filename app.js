@@ -1,19 +1,21 @@
-/* 轻卡日记 - 修复版：主题、日期、日历、最近 7 天趋势 */
 const STORAGE_KEY = "light-calorie-diary-v2";
 const UI_THEME_KEY = "light-calorie-diary-theme";
 
 const mealNames = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
-const themes = [
-  { id: "dimoo", name: "清新绿" },
-  { id: "lineDog", name: "线条小狗" },
-  { id: "kuromi", name: "酷洛米" },
-  { id: "lulu", name: "露露猪" }
-];
+const themes = {
+  dimoo: "清新绿",
+  lineDog: "线条小狗",
+  kuromi: "酷洛米",
+  lulu: "Lulu",
+  cream: "奶油黄"
+};
 
 const $ = (selector) => document.querySelector(selector);
-const pad = (n) => String(n).padStart(2, "0");
-const toDateKey = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-const today = () => toDateKey(new Date());
+const today = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
 
 let state = loadState();
 let activeDate = today();
@@ -21,57 +23,68 @@ let calendarMonth = activeDate.slice(0, 7);
 let currentTheme = localStorage.getItem(UI_THEME_KEY) || "dimoo";
 let cloudClient = null;
 let currentUser = null;
-let saveTimer = null;
+let isRendering = false;
 
-function formatAccountToEmail(input) {
-  const val = input.trim();
-  return val.includes("@") ? val : `${val}@diary.local`;
+function safeText(selector, text) {
+  const el = $(selector);
+  if (el) el.textContent = text;
 }
 
-function setStatus(selector, message, tone = "muted") {
+function safeValue(selector, value) {
   const el = $(selector);
+  if (el) el.value = value ?? "";
+}
+
+function setAuthStatus(message, type = "muted") {
+  const el = $("#authStatus");
   if (!el) return;
   el.textContent = message;
-  el.dataset.tone = tone;
+  el.dataset.status = type;
 }
 
-function setAuthStatus(message, tone) {
-  setStatus("#authStatus", message, tone);
+function setCloudStatus(message, type = "muted") {
+  const el = $("#cloudStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.dataset.status = type;
 }
 
-function setCloudStatus(message, tone) {
-  setStatus("#cloudStatus", message, tone);
+function formatAccountToEmail(input) {
+  const val = String(input || "").trim();
+  return val.includes("@") ? val : `${val}@diary.local`;
 }
 
 function initCloud() {
   const config = window.SUPABASE_CONFIG || {};
   if (!window.supabase || !config.url || !config.anonKey) {
-    setCloudStatus("云端配置缺失，当前使用本地保存", "error");
+    setCloudStatus("本地模式：未配置云端", "muted");
+    setAuthStatus("本地模式可直接使用，云端同步未配置", "muted");
+    setSignedIn({ email: "local@diary.local", id: "local" }, true);
     return false;
   }
-  cloudClient = supabase.createClient(config.url, config.anonKey);
+  cloudClient = window.supabase.createClient(config.url, config.anonKey);
   return true;
 }
 
 async function signIn(account, password) {
-  if (!cloudClient) return setAuthStatus("云端未配置，无法登录", "error");
+  if (!cloudClient) {
+    setSignedIn({ email: formatAccountToEmail(account || "local"), id: "local" }, true);
+    return;
+  }
   setAuthStatus("正在登录...", "muted");
-  const { data, error } = await cloudClient.auth.signInWithPassword({
-    email: formatAccountToEmail(account),
-    password
-  });
+  const { data, error } = await cloudClient.auth.signInWithPassword({ email: formatAccountToEmail(account), password });
   if (error) return setAuthStatus(`登录失败: ${error.message}`, "error");
   setSignedIn(data.user);
   await loadCloudState();
 }
 
 async function signUp(account, password) {
-  if (!cloudClient) return setAuthStatus("云端未配置，无法注册", "error");
+  if (!cloudClient) {
+    setSignedIn({ email: formatAccountToEmail(account || "local"), id: "local" }, true);
+    return;
+  }
   setAuthStatus("正在创建账号...", "muted");
-  const { data, error } = await cloudClient.auth.signUp({
-    email: formatAccountToEmail(account),
-    password
-  });
+  const { data, error } = await cloudClient.auth.signUp({ email: formatAccountToEmail(account), password });
   if (error) return setAuthStatus(`注册失败: ${error.message}`, "error");
   if (data.session) {
     setAuthStatus("注册成功并已自动登录", "ok");
@@ -82,182 +95,146 @@ async function signUp(account, password) {
   }
 }
 
-function setSignedIn(user) {
+function setSignedIn(user, localMode = false) {
   currentUser = user;
   $("#authScreen")?.classList.toggle("hidden", Boolean(user));
   $("#appRoot")?.classList.toggle("locked", !user);
-  setCloudStatus(user ? `同步中: ${user.email.split("@")[0]}` : "请先登录", user ? "ok" : "muted");
+  const name = user?.email ? user.email.split("@")[0] : "";
+  setCloudStatus(user ? (localMode ? "本地模式" : `同步中：${name}`) : "请先登录", user ? "ok" : "muted");
 }
 
 async function loadCloudState() {
-  if (!cloudClient || !currentUser) return;
-  const { data, error } = await cloudClient
-    .from("health_diary")
-    .select("data")
-    .eq("user_id", currentUser.id)
-    .maybeSingle();
-
-  if (error) {
-    setCloudStatus(`云端读取失败: ${error.message}`, "error");
-    return;
-  }
+  if (!cloudClient || !currentUser || currentUser.id === "local") return;
+  const { data } = await cloudClient.from("health_diary").select("data").eq("user_id", currentUser.id).maybeSingle();
   if (data?.data) {
     state = normalizeState(data.data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    saveLocal();
+    render();
+    setCloudStatus("云端数据已同步", "ok");
   }
-  render();
-  setCloudStatus("云端数据已同步", "ok");
-}
-
-function scheduleSaveCloudState() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveCloudState, 450);
 }
 
 async function saveCloudState() {
-  if (!cloudClient || !currentUser) return;
-  const { error } = await cloudClient.from("health_diary").upsert({
+  if (!cloudClient || !currentUser || currentUser.id === "local" || isRendering) return;
+  await cloudClient.from("health_diary").upsert({
     user_id: currentUser.id,
     data: state,
     updated_at: new Date().toISOString()
   });
-  setCloudStatus(error ? `保存失败: ${error.message}` : "已自动保存至云端", error ? "error" : "ok");
+  setCloudStatus("已自动保存至云端", "ok");
 }
 
 function normalizeState(input) {
-  const next = input && typeof input === "object" ? input : {};
-  next.settings = { dailyGoal: 1600, targetWeight: "", ...(next.settings || {}) };
-  next.days = next.days || {};
+  const defaults = { settings: { dailyGoal: 1600, targetWeight: "" }, days: {} };
+  const next = { ...defaults, ...(input || {}) };
+  next.settings = { ...defaults.settings, ...(input?.settings || {}) };
+  next.days = input?.days || {};
   Object.values(next.days).forEach((day) => {
     day.weight ??= "";
+    day.exercise ??= 0;
     day.water ??= "";
     day.sleep ??= "";
-    day.exercise ??= 0;
-    day.meals = { breakfast: [], lunch: [], dinner: [], snack: [], ...(day.meals || {}) };
+    day.meals ??= {};
+    Object.keys(mealNames).forEach((key) => day.meals[key] ??= []);
   });
   return next;
 }
 
 function loadState() {
   try {
-    return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"));
+    return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"));
   } catch {
-    return normalizeState({});
+    return normalizeState(null);
   }
 }
 
 function saveLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  scheduleSaveCloudState();
 }
 
-function getDay(dateKey = activeDate) {
-  if (!state.days[dateKey]) {
-    state.days[dateKey] = {
-      weight: "",
-      water: "",
-      sleep: "",
-      exercise: 0,
-      meals: { breakfast: [], lunch: [], dinner: [], snack: [] }
-    };
+function getDay(date = activeDate) {
+  if (!state.days[date]) {
+    state.days[date] = { weight: "", exercise: 0, water: "", sleep: "", meals: { breakfast: [], lunch: [], dinner: [], snack: [] } };
   }
-  return state.days[dateKey];
+  return state.days[date];
 }
 
-function dayTotal(day) {
-  return Object.values(day.meals || {}).flat().reduce((sum, item) => sum + Number(item.calories || 0), 0);
+function caloriesOf(day) {
+  return Object.values(day?.meals || {}).flat().reduce((sum, item) => sum + Number(item.calories || 0), 0);
 }
 
-function addDays(dateKey, delta) {
-  const d = new Date(`${dateKey}T00:00:00`);
-  d.setDate(d.getDate() + delta);
-  return toDateKey(d);
+function addDays(dateStr, amount) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + amount);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }
 
-function applyTheme(themeId) {
-  currentTheme = themeId;
-  document.body.dataset.theme = themeId;
-  localStorage.setItem(UI_THEME_KEY, themeId);
-}
-
-function initThemePicker() {
+function applyTheme() {
+  document.body.dataset.theme = currentTheme;
   const select = $("#themeSelect");
   if (!select) return;
-  select.innerHTML = themes.map((theme) => `<option value="${theme.id}">${theme.name}</option>`).join("");
-  select.value = themes.some((theme) => theme.id === currentTheme) ? currentTheme : "dimoo";
-  applyTheme(select.value);
+  select.innerHTML = Object.entries(themes).map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+  select.value = currentTheme;
 }
 
 function render() {
+  isRendering = true;
   const day = getDay();
-
-  $("#activeDate").value = activeDate;
-  $("#dailyWeight").value = day.weight ?? "";
-  $("#waterCups").value = day.water ?? "";
-  $("#sleepHours").value = day.sleep ?? "";
-  $("#exerciseCalories").value = day.exercise ?? 0;
-  $("#dailyGoal").value = state.settings.dailyGoal ?? "";
-  $("#targetWeight").value = state.settings.targetWeight ?? "";
-
-  const total = dayTotal(day);
-  const goal = Number(state.settings.dailyGoal) || 0;
-  const exercise = Number(day.exercise) || 0;
+  const total = caloriesOf(day);
+  const goal = Number(state.settings.dailyGoal || 0);
+  const exercise = Number(day.exercise || 0);
   const remaining = goal - total + exercise;
-  const percent = goal ? Math.min(100, Math.round((total / goal) * 100)) : 0;
 
-  $("#totalCalories").textContent = total;
-  $("#remainingCalories").textContent = remaining;
-  $("#burnedCalories").textContent = exercise;
-  $("#currentWeightText").textContent = day.weight || "--";
-  $("#calorieMeter").style.width = `${percent}%`;
-  $("#calorieHint").textContent = goal ? `已使用 ${percent}% 的每日目标` : "请先设置每日目标";
+  safeValue("#activeDate", activeDate);
+  safeValue("#dailyWeight", day.weight);
+  safeValue("#waterCups", day.water);
+  safeValue("#sleepHours", day.sleep);
+  safeValue("#dailyGoal", state.settings.dailyGoal);
+  safeValue("#targetWeight", state.settings.targetWeight);
+  safeValue("#exerciseCalories", day.exercise);
 
-  renderGoal(day);
+  safeText("#totalCalories", total);
+  safeText("#remainingCalories", remaining);
+  safeText("#burnedCalories", exercise);
+  safeText("#currentWeightText", day.weight || "--");
+  safeText("#calorieHint", goal ? `${Math.round((total / goal) * 100)}% / ${goal} 千卡` : "请先设置每日目标");
+  safeText("#goalProgress", goal ? `${remaining >= 0 ? "剩余" : "超出"} ${Math.abs(remaining)} 千卡` : "--");
+  safeText("#goalDetail", day.weight ? `当前 ${day.weight}kg，目标 ${state.settings.targetWeight || "--"}kg` : "记录体重后可查看趋势");
+
+  const meter = $("#calorieMeter");
+  if (meter) meter.style.width = `${Math.min(100, goal ? (total / goal) * 100 : 0)}%`;
+
   renderMeals(day);
   renderCalendar();
   renderTrend();
-  renderTips(day, total, remaining);
+  renderTips(total, goal, exercise, day);
   saveLocal();
-}
-
-function renderGoal(day) {
-  const target = Number(state.settings.targetWeight);
-  const weight = Number(day.weight);
-  if (!target || !weight) {
-    $("#goalProgress").textContent = "--";
-    $("#goalDetail").textContent = "填写目标体重和当前体重后显示进度";
-    $("#weightHint").textContent = "记录体重以查看趋势";
-    return;
-  }
-  const diff = (weight - target).toFixed(1);
-  $("#goalProgress").textContent = diff > 0 ? `距目标 ${diff} kg` : "已达到目标";
-  $("#goalDetail").textContent = `目标 ${target} kg，当前 ${weight} kg`;
-  $("#weightHint").textContent = diff > 0 ? `还差 ${diff} kg` : "继续保持";
+  isRendering = false;
+  saveCloudState();
 }
 
 function renderMeals(day) {
   const list = $("#mealList");
+  const template = $("#mealTemplate");
+  if (!list || !template) return;
   list.innerHTML = "";
   Object.entries(mealNames).forEach(([key, label]) => {
-    const node = $("#mealTemplate").content.firstElementChild.cloneNode(true);
-    const entries = day.meals[key] || [];
+    const node = template.content.firstElementChild.cloneNode(true);
     node.querySelector("h3").textContent = label;
-    node.querySelector(".meal-title span").textContent = `${entries.reduce((s, e) => s + Number(e.calories || 0), 0)} 千卡`;
+    node.querySelector(".meal-title span").textContent = `${day.meals[key].length} 项`;
     const entriesDiv = node.querySelector(".entries");
-
-    if (!entries.length) {
+    if (!day.meals[key].length) {
       entriesDiv.innerHTML = `<p class="empty">暂无记录</p>`;
     } else {
-      entries.forEach((item, index) => {
+      day.meals[key].forEach((item, index) => {
         const row = document.createElement("div");
-        row.className = "entry";
-        row.innerHTML = `
-          <span>${item.name || "未命名食物"}</span>
-          <b>${Number(item.calories || 0)} 千卡</b>
-          <span class="mini-actions">
-            <button type="button" data-action="edit" data-meal="${key}" data-index="${index}">改</button>
-            <button type="button" data-action="delete" data-meal="${key}" data-index="${index}">删</button>
-          </span>`;
+        row.className = "entry-row";
+        row.innerHTML = `<span>${item.name}</span><b>${Number(item.calories || 0)} 千卡</b><button type="button" aria-label="删除">×</button>`;
+        row.querySelector("button").addEventListener("click", () => {
+          day.meals[key].splice(index, 1);
+          render();
+        });
         entriesDiv.appendChild(row);
       });
     }
@@ -266,80 +243,85 @@ function renderMeals(day) {
 }
 
 function renderCalendar() {
-  const root = $("#calendar");
-  if (!root) return;
+  const grid = $("#calendarGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
   const [year, month] = calendarMonth.split("-").map(Number);
   const first = new Date(year, month - 1, 1);
-  const start = new Date(first);
-  start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const offset = (first.getDay() + 6) % 7;
 
-  root.innerHTML = "";
-  for (let i = 0; i < 42; i++) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
-    const key = toDateKey(date);
-    const day = getDay(key);
-    const total = dayTotal(day);
+  for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("span"));
 
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${calendarMonth}-${String(d).padStart(2, "0")}`;
+    const day = state.days[date];
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `day${date.getMonth() !== month - 1 ? " other" : ""}${key === activeDate ? " active" : ""}`;
-    cell.dataset.date = key;
-    cell.innerHTML = `
-      <strong>${date.getDate()}</strong>
-      ${day.weight ? `<small>体重 ${day.weight}kg</small>` : ""}
-      ${total ? `<small class="ok">${total} 千卡</small>` : "<small>未记录</small>"}`;
-    root.appendChild(cell);
+    cell.className = `calendar-day${date === activeDate ? " active" : ""}`;
+    const cals = day ? caloriesOf(day) : 0;
+    cell.innerHTML = `<strong>${d}</strong><small>${day?.weight ? day.weight + "kg" : ""}</small><em>${cals ? cals + "kcal" : ""}</em>`;
+    cell.addEventListener("click", () => {
+      activeDate = date;
+      calendarMonth = date.slice(0, 7);
+      render();
+    });
+    grid.appendChild(cell);
   }
 }
 
 function renderTrend() {
-  const root = $("#trendBars");
-  if (!root) return;
-  const keys = Array.from({ length: 7 }, (_, i) => addDays(activeDate, i - 6));
-  const values = keys.map((key) => dayTotal(getDay(key)));
-  const max = Math.max(100, ...values);
-
-  root.innerHTML = keys.map((key, index) => {
-    const height = Math.max(8, Math.round((values[index] / max) * 160));
-    return `
-      <div class="bar">
-        <i style="height:${height}px"></i>
-        <span>${key.slice(5).replace("-", "/")}</span>
-        <b>${values[index]}</b>
-      </div>`;
+  const chart = $("#trendChart");
+  if (!chart) return;
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(activeDate, i - 6));
+  const values = dates.map((date) => caloriesOf(state.days[date] || { meals: {} }));
+  const max = Math.max(1600, ...values);
+  chart.innerHTML = dates.map((date, i) => {
+    const height = Math.max(4, Math.round((values[i] / max) * 150));
+    return `<div class="trend-bar-wrap"><div class="trend-value">${values[i] || ""}</div><div class="trend-bar" style="height:${height}px"></div><span>${date.slice(5).replace("-", "/")}</span></div>`;
   }).join("");
 }
 
-function renderTips(day, total, remaining) {
-  const tips = [];
-  if (!Number(state.settings.dailyGoal)) tips.push("先设置每日热量目标，统计会更准确。");
-  if (!day.weight) tips.push("今天还没记录体重。");
-  if (!Number(day.water)) tips.push("今天还没记录饮水。");
-  if (remaining < 0) tips.push(`今日已超出 ${Math.abs(remaining)} 千卡，晚餐可以清淡一些。`);
-  if (total === 0) tips.push("今天还没有饮食记录。");
-  if (!tips.length) tips.push("记录很完整，继续保持。");
-
-  $("#tips").innerHTML = tips.map((tip) => `<li>${tip}</li>`).join("");
+function renderTips(total, goal, exercise, day) {
+  const tips = $("#tipsList");
+  if (!tips) return;
+  const list = [];
+  if (!total) list.push("今天还没有饮食记录，先添加一餐吧。");
+  if (goal && total > goal) list.push("今天摄入已超过目标，可以增加一点轻运动。");
+  if (goal && total <= goal) list.push("今日热量还在目标范围内，继续保持。");
+  if (!day.weight) list.push("记录体重后，趋势会更准确。");
+  if (!Number(day.water || 0)) list.push("别忘了记录饮水。");
+  if (exercise > 0) list.push(`运动已消耗 ${exercise} 千卡，很棒。`);
+  tips.innerHTML = list.map((tip) => `<p>${tip}</p>`).join("");
 }
 
 function bindEvents() {
   $("#authForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
-    signIn($("#authEmail").value, $("#authPassword").value);
+    signIn($("#authEmail")?.value, $("#authPassword")?.value);
   });
 
-  $("#signupButton")?.addEventListener("click", () => {
-    signUp($("#authEmail").value, $("#authPassword").value);
-  });
+  $("#signupButton")?.addEventListener("click", () => signUp($("#authEmail")?.value, $("#authPassword")?.value));
 
   $("#logoutButton")?.addEventListener("click", async () => {
     if (cloudClient) await cloudClient.auth.signOut();
     setSignedIn(null);
   });
 
-  $("#themeSelect")?.addEventListener("change", (e) => {
-    applyTheme(e.target.value);
+  $("#entryForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const meal = $("#mealType").value;
+    const name = $("#foodName").value.trim() || "未命名食物";
+    const calories = Number($("#foodCalories").value || 0);
+    if (!calories) return;
+    getDay().meals[meal].push({ name, calories });
+    e.target.reset();
+    render();
+  });
+
+  $("#activeDate")?.addEventListener("change", (e) => {
+    activeDate = e.target.value || today();
+    calendarMonth = activeDate.slice(0, 7);
     render();
   });
 
@@ -355,103 +337,67 @@ function bindEvents() {
     render();
   });
 
-  $("#activeDate")?.addEventListener("change", (e) => {
-    if (!e.target.value) return;
-    activeDate = e.target.value;
-    calendarMonth = activeDate.slice(0, 7);
-    render();
-  });
-
   $("#prevMonth")?.addEventListener("click", () => {
-    const date = new Date(`${calendarMonth}-01T00:00:00`);
-    date.setMonth(date.getMonth() - 1);
-    calendarMonth = toDateKey(date).slice(0, 7);
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const d = new Date(y, m - 2, 1);
+    calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     render();
   });
 
   $("#nextMonth")?.addEventListener("click", () => {
-    const date = new Date(`${calendarMonth}-01T00:00:00`);
-    date.setMonth(date.getMonth() + 1);
-    calendarMonth = toDateKey(date).slice(0, 7);
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const d = new Date(y, m, 1);
+    calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     render();
   });
 
-  $("#calendar")?.addEventListener("click", (e) => {
-    const cell = e.target.closest(".day");
-    if (!cell) return;
-    activeDate = cell.dataset.date;
-    calendarMonth = activeDate.slice(0, 7);
-    render();
-  });
-
-  $("#entryForm")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const meal = $("#mealType").value;
-    const calories = Number($("#foodCalories").value);
-    if (!calories) return;
-    getDay().meals[meal].push({
-      name: $("#foodName").value.trim() || "未命名食物",
-      calories
-    });
-    e.target.reset();
-    render();
-  });
-
-  $("#mealList")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-action]");
-    if (!btn) return;
-    const meal = btn.dataset.meal;
-    const index = Number(btn.dataset.index);
-    const items = getDay().meals[meal];
-
-    if (btn.dataset.action === "delete") {
-      items.splice(index, 1);
-    } else {
-      const item = items[index];
-      $("#mealType").value = meal;
-      $("#foodName").value = item.name;
-      $("#foodCalories").value = item.calories;
-      items.splice(index, 1);
-      $("#foodName").focus();
-    }
-    render();
-  });
-
-  $("#copyYesterday")?.addEventListener("click", () => {
-    const yesterday = state.days[addDays(activeDate, -1)];
-    if (!yesterday) return;
-    getDay().meals = JSON.parse(JSON.stringify(yesterday.meals));
+  $("#themeSelect")?.addEventListener("change", (e) => {
+    currentTheme = e.target.value;
+    localStorage.setItem(UI_THEME_KEY, currentTheme);
+    applyTheme();
     render();
   });
 
   ["dailyWeight", "waterCups", "sleepHours", "exerciseCalories"].forEach((id) => {
     $(`#${id}`)?.addEventListener("input", (e) => {
       const day = getDay();
-      const map = { dailyWeight: "weight", waterCups: "water", sleepHours: "sleep", exerciseCalories: "exercise" };
-      day[map[id]] = e.target.value;
+      if (id === "dailyWeight") day.weight = e.target.value;
+      if (id === "waterCups") day.water = e.target.value;
+      if (id === "sleepHours") day.sleep = e.target.value;
+      if (id === "exerciseCalories") day.exercise = e.target.value;
       render();
     });
   });
 
-  ["dailyGoal", "targetWeight"].forEach((id) => {
-    $(`#${id}`)?.addEventListener("input", (e) => {
-      state.settings[id] = e.target.value;
-      render();
-    });
+  $("#dailyGoal")?.addEventListener("input", (e) => {
+    state.settings.dailyGoal = e.target.value;
+    render();
+  });
+
+  $("#targetWeight")?.addEventListener("input", (e) => {
+    state.settings.targetWeight = e.target.value;
+    render();
+  });
+
+  $("#copyYesterday")?.addEventListener("click", () => {
+    const source = state.days[addDays(activeDate, -1)];
+    if (!source) return;
+    const target = getDay();
+    target.meals = JSON.parse(JSON.stringify(source.meals));
+    render();
   });
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  initThemePicker();
-  bindEvents();
-
-  if (initCloud()) {
-    const { data } = await cloudClient.auth.getSession();
+applyTheme();
+bindEvents();
+if (initCloud()) {
+  cloudClient.auth.getSession().then(({ data }) => {
     if (data.session) {
       setSignedIn(data.session.user);
-      await loadCloudState();
+      loadCloudState();
+    } else {
+      setSignedIn(null);
     }
-  }
-
-  render();
-});
+  });
+}
+render();
